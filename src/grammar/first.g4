@@ -3,58 +3,55 @@ grammar first;
 prog:	stat* EOF ;
 
 stat: expr #expr_stat
-    | def #defineFunc
-    | IF_kw '(' cond=expr ')' then=block  ('else' else=block)? #if_stat
-    | '>' expr #print_stat
+    | block #block_stat
+    | OUT ex=CONSOLE (':'val=expr)? #print_stat
     ;
 
-block : stat #block_single
-    | '{' block* '}' #block_real
+block : expr #block_single
+    | '>>' block* '>>' #block_real
     ;
 
-def : name=ID '(' (args+= ID (',' args+=ID)* )')' body=block ;
-
-func : name=ID '(' (args+= expr (',' args+= expr)* ) ')' ;
+file: FILE path=expr #getFile;
 
 expr:
-        l=expr op=(EQ|NEQ) r=expr #logicOp
-    |   l=expr op=(MUL|DIV) r=expr #binOp
-    |	l=expr op=(ADD|SUB) r=expr #binOp
-    |   op=NOT r=expr #logicOp
-    |   l=expr op=AND r=expr #logicOp
-    |   l=expr op=OR r=expr #logicOp
-    |	INT #int_tok
-    |   DOU #double_tok
-    |   BOOL #bool_tok
-    |	op='D(' expr ')' #pars
-    |	op='I(' expr ')' #pars
-    |   (INIT) ID #initVar
-    | <assoc=right> ID '=' expr # assign
-    |   ID #getVar
-    |   func #callFunc
+        CALL (':' num=INT) #call
+    |   VERB op=(POST|PUT|GET|DELETE) #setMethod
+    |   URL val=expr #setUrl
+    |   QUERY key=expr ':' val=expr #setQuery
+    |   HEADER  key=expr ':' val=expr #setHeader
+    |   BODY val=file #setBody
+    |   BODY JSON  key=expr ':' val=expr #setBody
+    | <assoc=right> VAR (GLOBAL global='true')? ID ':' expr ';' #setVar
+    |   ARRAY (GLOBAL global='true')? ID ':[' items+= expr (':' items+= expr)* '];' #setArr
+    |   '{' ID (':' index=INT)? '}' #getVar
+    |   INT #intTok
+    |   STRING #stringTok
     ;
 
-IF_kw : 'if' ;
+VERB:   'verb:';
+POST:   'post';
+PUT:    'put';
+GET:    'get';
+DELETE: 'delete';
 
-DIV : '/' ;
+VAR:    'var:';
+GLOBAL: 'global:';
+ARRAY:  'array:';
+URL:    'url';
 
-MUL : '*' ;
+QUERY:  'query:';
+HEADER: 'header:';
+BODY:   'body:';
+FILE:   'file:';
+JSON:   'json:';
 
-SUB : '-' ;
+FOR_:   'for:';
 
-ADD : '+' ;
+OUT:    'output:';
+CONSOLE: 'console:';
 
-OR : 'or';
+CALL:   'call';
 
-AND : 'and';
-
-NOT : 'not';
-
-EQ : '==';
-
-NEQ : '!=';
-
-INIT: 'var';
 
 //NEWLINE : [\r\n]+ -> skip;
 NEWLINE : [\r\n]+ -> channel(HIDDEN);
@@ -63,9 +60,7 @@ NEWLINE : [\r\n]+ -> channel(HIDDEN);
 WS : [ \t]+ -> channel(HIDDEN) ;
 
 INT     : [0-9]+ ;
-DOU : [0-9]+'.'[0-9]+;
-BOOL : 'true'|'false';
-
+STRING  : [a-zA-Z0-9_]+;
 
 ID : [a-zA-Z_][a-zA-Z0-9_]* ;
 

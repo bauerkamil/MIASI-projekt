@@ -24,7 +24,7 @@ public class Start {
         ParseTree tree = par.prog();
 
         CalculateVisitor v = new CalculateVisitor(inp,tokens);
-        BaseClass res = v.visit(tree);
+        v.visit(tree);
 //        System.out.printf("Wynik: %d\n", res);
     }
 }
