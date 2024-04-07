@@ -2,53 +2,66 @@ grammar first;
 
 prog:	stat* EOF ;
 
-stat: expr #expr_stat
+stat: expr_full #expr_stat
     | block #block_stat
-    | OUT ex=CONSOLE (':'val=expr)? #print_stat
     ;
 
-block : expr #block_single
-    | '>>' block* '>>' #block_real
+block : expr_full* '>>' #block_tok
     ;
 
-file: FILE path=expr #getFile;
+get_file: FILE '|' path=expr #getFile;
+
+for_block: FOR_ '|'
+            (from=INT '|' to=INT '|')?
+            (array_name=ID '|')?
+            (item_name=ID '|')?
+            (index_name=ID '|')?
+            expr_full+;
+
+expr_full: expr ';';
 
 expr:
-        CALL (':' num=INT) #call
-    |   VERB op=(POST|PUT|GET|DELETE) #setMethod
-    |   URL val=expr #setUrl
-    |   QUERY key=expr ':' val=expr #setQuery
-    |   HEADER  key=expr ':' val=expr #setHeader
-    |   BODY val=file #setBody
-    |   BODY JSON  key=expr ':' val=expr #setBody
-    | <assoc=right> VAR (GLOBAL global='true')? ID ':' expr ';' #setVar
-    |   ARRAY (GLOBAL global='true')? ID ':[' items+= expr (':' items+= expr)* '];' #setArr
-    |   '{' ID (':' index=INT)? '}' #getVar
+        FOR_ '|' from=INT '|' to=INT '|' (index_name=ID '|')? expr_full+ #forExpr
+    |   FOREACH '|' array_name=ID '|' item_name=ID '|' (index_name=ID '|')? expr_full+ #foreachExpr
+    |   CALL ('|' num=INT)? #call
+    |   OUT '|' CONSOLE ('|' val=expr)? #print_console
+    |   OUT '|' get_file #print_file
+    |   VERB '|' op=(POST|PUT|GET|DELETE) #setMethod
+    |   URL '|' val=expr #setUrl
+    |   QUERY '|' key=expr '|' val=expr #setQuery
+    |   HEADER '|'  key=expr '|' val=expr #setHeader
+    |   BODY '|' val=get_file #setBody
+    |   BODY '|' JSON '|'  key=expr '|' val=expr #setBody
+    |   VAR '|' (GLOBAL '|')? name=ID '|' expr #setVar
+    |   ARRAY '|' (GLOBAL '|')? name=ID '|' '[' items+= expr ('|' items+= expr)* ']' #setArr
+    |   '{' ID ('|' index=INT)? '}' #getVar
     |   INT #intTok
+    |   ID #stringTok
     |   STRING #stringTok
     ;
 
-VERB:   'verb:';
+VERB:   'verb';
 POST:   'post';
 PUT:    'put';
 GET:    'get';
 DELETE: 'delete';
 
-VAR:    'var:';
-GLOBAL: 'global:';
-ARRAY:  'array:';
+VAR:    'var';
+GLOBAL: 'global';
+ARRAY:  'array';
 URL:    'url';
 
-QUERY:  'query:';
-HEADER: 'header:';
-BODY:   'body:';
-FILE:   'file:';
-JSON:   'json:';
+QUERY:  'query';
+HEADER: 'header';
+BODY:   'body';
+FILE:   'file';
+JSON:   'json';
 
-FOR_:   'for:';
+FOR_:   'for';
+FOREACH: 'foreach';
 
-OUT:    'output:';
-CONSOLE: 'console:';
+OUT:    'output';
+CONSOLE: 'console';
 
 CALL:   'call';
 
@@ -59,10 +72,11 @@ NEWLINE : [\r\n]+ -> channel(HIDDEN);
 //WS : [ \t]+ -> skip ;
 WS : [ \t]+ -> channel(HIDDEN) ;
 
-INT     : [0-9]+ ;
-STRING  : [a-zA-Z0-9_]+;
-
 ID : [a-zA-Z_][a-zA-Z0-9_]* ;
+
+INT     : [0-9]+;
+STRING  : [a-zA-Z0-9_/:.-]+;
+
 
 COMMENT : '/*' .*? '*/' -> channel(HIDDEN) ;
 LINE_COMMENT : '//' ~'\n'* '\n' -> channel(HIDDEN) ;
