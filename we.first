@@ -1,7 +1,7 @@
 var|global|my_global_variable|my_global_value;
-output|file|path/to/file;
+out|file|path/to/file;
 >>
-output|file|path/to/file;
+out|file|path/to/file;
 verb|post;
 var|my_variable|my_value;
 url|test/items/1;
@@ -23,12 +23,12 @@ query|key0|value1;
 query|key1|value2;
 query|key2|value3;
 
-output|console;
+out|console;
 call|2;
-output|console|players;
+out|console|players;
 
 call;
-output|file|path/to/file;
+out|file|path/to/file;
 call;
 >>
 

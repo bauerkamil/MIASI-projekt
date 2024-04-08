@@ -10,7 +10,7 @@ public class Start {
     public static void main(String[] args) {
         CharStream inp = null;
         try {
-            inp = CharStreams.fromFileName("we.first");
+            inp = CharStreams.fromFileName("we3.first");
         } catch (IOException e) {
             throw new RuntimeException(e);
         }

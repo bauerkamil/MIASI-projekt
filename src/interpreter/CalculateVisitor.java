@@ -1,27 +1,27 @@
 package interpreter;
 
-import SymbolTable.GlobalSymbols;
-import SymbolTable.LocalSymbols;
 import grammar.*;
 import org.antlr.v4.runtime.CharStream;
 import org.antlr.v4.runtime.ParserRuleContext;
-import org.antlr.v4.runtime.Token;
 import org.antlr.v4.runtime.TokenStream;
 import org.antlr.v4.runtime.misc.Interval;
-import org.antlr.v4.runtime.tree.ParseTree;
+import worker.Worker;
 
-import java.security.InvalidParameterException;
 import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.HashSet;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 public class CalculateVisitor extends firstBaseVisitor<String> {
     private TokenStream tokStream = null;
     private CharStream input=null;
 
-    private GlobalSymbols<Function> functions;
-    private LocalSymbols<BaseClass> variables;
+    private Worker worker = new Worker();
+    private final Map<String, String> localVars = new HashMap<>();
+    private final Map<String, List<String>> localArrays = new HashMap<>();
+    private final Map<String, String>globalVars = new HashMap<>();
+    private final Map<String, List<String>> globalArrays = new HashMap<>();
+
     public CalculateVisitor(CharStream inp) {
         super();
         this.input = inp;
@@ -42,76 +42,172 @@ public class CalculateVisitor extends firstBaseVisitor<String> {
         if(input==null) throw new RuntimeException("Input stream undefined");
         return input.getText(new Interval(a,b));
     }
+
     @Override
-    public String visitIf_stat(firstParser.If_statContext ctx) {
-
-        if (visit(ctx.cond).toBoolean()) {
-            visit(ctx.then);
-        }
-        else {
-            if(ctx.else_ != null)
-                visit(ctx.else_);
-        }
-        return;
+    public String visitForExpr(firstParser.ForExprContext ctx) {
+        //TODO
+        return super.visitForExpr(ctx);
     }
+
     @Override
-    public String visitDefineFunc(firstParser.DefineFuncContext ctx) {
-        String name = ctx.def().name.getText();
-        this.functions.newSymbol(name);
-        Function fun = new Function();
-        fun.body = ctx.def().body;
-        List<String> args = new ArrayList<>();
-        for (Token argToken: ctx.def().args) {
-            args.add((argToken.getText()));
-        }
-        fun.args = args;
-        this.functions.setSymbol(name, fun);
-        return;
+    public String visitForeachExpr(firstParser.ForeachExprContext ctx) {
+        //TODO
+        return super.visitForeachExpr(ctx);
     }
 
-    @Override public String visitCallFunc(firstParser.CallFuncContext ctx) {
-        Function fun = this.functions.getSymbol(ctx.func().name.getText());
+    @Override
+    public String visitCall(firstParser.CallContext ctx) {
+        int number = 1;
+        if (ctx.num != null)
+            number = Integer.parseInt(visit(ctx.num));
 
-        if (ctx.func().args.size() != fun.args.size()) {
-            throw new RuntimeException("wrong number of parameters");
+        for(int i=0; i<number; i++){
+            worker.sendRequest();
         }
-        variables.enterScope();
-        int argsSize = fun.args.size();
-        for (int i = 0; i < argsSize; i ++) {
-            variables.newSymbol(fun.args.get(i));
-            variables.setSymbol(fun.args.get(i), visit(ctx.func().args.get(i)));
-        }
-        visit(fun.body);
-        variables.leaveScope();
-        return;
+
+        return "";
     }
 
-    @Override public String visitInitVar(firstParser.InitVarContext ctx) {
-        this.variables.newSymbol(ctx.ID().getText());
-        return;
+    @Override
+    public String visitPrintConsole(firstParser.PrintConsoleContext ctx) {
+        //TODO: val to print
+        this.worker.setConsoleEnabled(true);
+        return "";
     }
-    @Override public String visitAssign(firstParser.AssignContext ctx) {
+
+    @Override
+    public String visitPrintFile(firstParser.PrintFileContext ctx) {
+        //TODO
+        return super.visitPrintFile(ctx);
+    }
+
+    @Override
+    public String visitSetMethod(firstParser.SetMethodContext ctx) {
+        this.worker.setMethod(ctx.op.getText().toUpperCase());
+        return "";
+    }
+
+    @Override
+    public String visitSetUrl(firstParser.SetUrlContext ctx) {
+        this.worker.setUrl(visit(ctx.expr()));
+        return "";
+    }
+
+    @Override
+    public String visitSetQuery(firstParser.SetQueryContext ctx) {
+        this.worker.updateQuery(visit(ctx.key), visit(ctx.val));
+        return "";
+    }
+
+    @Override
+    public String visitSetHeader(firstParser.SetHeaderContext ctx) {
+        this.worker.updateHeader(visit(ctx.key), visit(ctx.val));
+        return "";
+    }
+
+    @Override
+    public String visitSetBody(firstParser.SetBodyContext ctx) {
+        //TODO
+        return super.visitSetBody(ctx);
+    }
+
+    @Override
+    public String visitSetBodyFile(firstParser.SetBodyFileContext ctx) {
+        this.worker.readRequestBody(visit(ctx.path));
+        return "";
+    }
+
+    @Override
+    public String visitSetVar(firstParser.SetVarContext ctx) {
         String name = ctx.ID().getText();
-        if (!this.variables.hasSymbol(name)) {
-            throw new RuntimeException("Undefined variable");
+
+        if(ctx.global != null) {
+            if (!localVars.containsKey(name)
+                && !localArrays.containsKey(name)
+                && !globalArrays.containsKey(name)) {
+
+                this.globalVars.put(name, visit(ctx.expr()));
+            }
+            return "";
         }
-        this.variables.setSymbol(name, visit(ctx.expr()));
-        return;
+
+        if (!globalVars.containsKey(name)
+                && !localArrays.containsKey(name)
+                && !globalArrays.containsKey(name)) {
+
+            this.localVars.put(name, visit(ctx.expr()));
+        }
+        return "";
+    }
+
+    @Override
+    public String visitSetArr(firstParser.SetArrContext ctx) {
+        String name = ctx.ID().getText();
+
+        List<String> items = new ArrayList<>();
+        for (firstParser.ExprContext itemCtx: ctx.items) {
+            items.add(visit(itemCtx));
+        }
+
+        if(ctx.global != null) {
+            if (!localVars.containsKey(name)
+                    && !globalVars.containsKey(name)
+                    && !localArrays.containsKey(name)) {
+
+                this.globalArrays.put(name, items);
+            }
+            return "";
+        }
+
+        if (!localVars.containsKey(name)
+                && !globalVars.containsKey(name)
+                && !globalArrays.containsKey(name)) {
+
+            this.localArrays.put(name, items);
+        }
+        return "";
     }
 
     @Override
     public String visitGetVar(firstParser.GetVarContext ctx) {
-        return this.variables.getSymbol(ctx.getText());
+        String name = ctx.name.getText();
+        Integer number = null;
+        if (ctx.index != null)
+            number = Integer.parseInt(visit(ctx.index));
+
+        if (number == null && this.localVars.containsKey(name)) {
+            return this.localVars.get(name);
+        }
+
+        if (number == null && this.globalVars.containsKey(name)) {
+            return this.globalVars.get(name);
+        }
+
+        if (number != null && this.localArrays.containsKey(name)) {
+            return this.localArrays.get(name).get(number);
+        }
+
+        if (number != null && this.globalArrays.containsKey(name)) {
+            return this.globalArrays.get(name).get(number);
+        }
+
+        throw new RuntimeException("Variable " + name + " does not exist or is nor defined correctly");
     }
 
     @Override
-    public String visitPrint_stat(firstParser.Print_statContext ctx) {
-        var st = ctx.expr();
-        var result = visit(st);
-        //System.out.printf("|%s=%s|\n", st.getText(), result.toString()); //nie drukuje ukrytych ani pominiętych spacji
-        //System.out.printf("|%s=%f|\n", getText(st),  result); //drukuje wszystkie spacje
-        System.out.printf("|%s=%s|\n", tokStream.getText(st), result); //drukuje spacje z ukrytego kanału, ale nie ->skip
-        return;
+    public String visitStringTok(firstParser.StringTokContext ctx) {
+        return ctx.val.getText();
+    }
+
+    @Override
+    public String visitBlockTok(firstParser.BlockTokContext ctx) {
+        //TODO: check
+        super.visitBlockTok(ctx);
+        this.worker = new Worker();
+        this.localVars.clear();
+        this.localArrays.clear();
+
+        return "";
     }
 
 }

@@ -6,38 +6,31 @@ stat: expr_full #expr_stat
     | block #block_stat
     ;
 
-block : expr_full* '>>' #block_tok
+block : expr_full* '>>' #blockTok
     ;
 
-get_file: FILE '|' path=expr #getFile;
-
-for_block: FOR_ '|'
-            (from=INT '|' to=INT '|')?
-            (array_name=ID '|')?
-            (item_name=ID '|')?
-            (index_name=ID '|')?
-            expr_full+;
+//get_file: FILE '|' path=expr #getFile;
 
 expr_full: expr ';';
 
 expr:
         FOR_ '|' from=INT '|' to=INT '|' (index_name=ID '|')? expr_full+ #forExpr
     |   FOREACH '|' array_name=ID '|' item_name=ID '|' (index_name=ID '|')? expr_full+ #foreachExpr
-    |   CALL ('|' num=INT)? #call
-    |   OUT '|' CONSOLE ('|' val=expr)? #print_console
-    |   OUT '|' get_file #print_file
+    |   CALL ('|' num=expr)? #call
+    |   OUT '|' CONSOLE ('|' val=expr)? #printConsole
+    |   OUT '|' FILE '|' path=expr #printFile
     |   VERB '|' op=(POST|PUT|GET|DELETE) #setMethod
-    |   URL '|' val=expr #setUrl
+    |   URL '|' expr #setUrl
     |   QUERY '|' key=expr '|' val=expr #setQuery
     |   HEADER '|'  key=expr '|' val=expr #setHeader
-    |   BODY '|' val=get_file #setBody
+    |   BODY '|' FILE '|' path=expr #setBodyFile
     |   BODY '|' JSON '|'  key=expr '|' val=expr #setBody
-    |   VAR '|' (GLOBAL '|')? name=ID '|' expr #setVar
-    |   ARRAY '|' (GLOBAL '|')? name=ID '|' '[' items+= expr ('|' items+= expr)* ']' #setArr
-    |   '{' ID ('|' index=INT)? '}' #getVar
-    |   INT #intTok
-    |   ID #stringTok
-    |   STRING #stringTok
+    |   VAR '|' (global=GLOBAL '|')? name=ID '|' expr #setVar
+    |   ARRAY '|' (global=GLOBAL '|')? name=ID '|' '[' items+= expr ('|' items+= expr)* ']' #setArr
+    |   '{' name=ID ('|' index=expr)? '}' #getVar
+    |   val=INT #stringTok
+    |   val=ID #stringTok
+    |   val=STRING #stringTok
     ;
 
 VERB:   'verb';
@@ -60,7 +53,7 @@ JSON:   'json';
 FOR_:   'for';
 FOREACH: 'foreach';
 
-OUT:    'output';
+OUT:    'out';
 CONSOLE: 'console';
 
 CALL:   'call';

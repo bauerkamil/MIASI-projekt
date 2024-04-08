@@ -1,8 +1,8 @@
 call;
 call|2;
-output|console;
-output|console|sth;
-output|file|path/t;
+out|console;
+out|console|sth;
+out|file|path/t;
 verb|post;
 url|https://eportal.pwr.edu.pl/local/login/index.php;
 query|key1|test1;

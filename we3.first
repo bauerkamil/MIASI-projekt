@@ -1,0 +1,8 @@
+var|global|sth2|https://dummyjson.com/auth/login;
+var|sth|data.json;
+url|{sth2};
+body|file|{sth};
+verb|post;
+header|Content-Type|application/json;
+out|console;
+call;
