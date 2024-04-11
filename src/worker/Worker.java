@@ -1,10 +1,12 @@
 package worker;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import variable_manager.VariableManager;
 
+import java.io.FileWriter;
 import java.io.IOException;
 import java.net.URI;
 import java.net.http.HttpClient;
@@ -12,6 +14,7 @@ import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.util.*;
 import java.io.File;
+import java.io.BufferedWriter;
 
 public class Worker {
     private String url = "";
@@ -56,7 +59,7 @@ public class Worker {
     }
 
     public void updateResponseVariables(String varName, String responseKey) {
-        this.headerMap.put(varName, responseKey);
+        this.responseVariables.put(varName, responseKey);
     }
 
     public void sendRequest(){
@@ -82,7 +85,7 @@ public class Worker {
 
         try {
             if (this.isConsoleEnabled)
-                System.out.println("Calling: [" + getMethod() + "] " + getUrl());
+                System.out.println("\nCalling: [" + getMethod() + "] " + getUrl());
 
             HttpResponse<String> response = client.send(request, HttpResponse.BodyHandlers.ofString());
 
@@ -102,7 +105,22 @@ public class Worker {
     }
 
     private String getFromResponse(HttpResponse<String> response, String key) {
-        return "";
+        JsonNode jsonResponse;
+
+        try {
+            jsonResponse = objectMapper.readTree(response.body());
+        } catch (JsonProcessingException e) {
+            throw new RuntimeException(e);
+        }
+
+        if(jsonResponse.has(key)){
+            return jsonResponse.get(key)
+                    .toString()
+                    .replaceFirst("^\"", "")
+                    .replaceFirst("\"$", "");
+        }
+
+        return null;
     }
 
     private void printToConsole(HttpResponse<String> response) {
@@ -111,7 +129,28 @@ public class Worker {
         System.out.println();
     }
     private void printToFile(HttpResponse<String> response) {
-        return;
+        File file = new File(this.outputFile);
+        BufferedWriter bw = null;
+        try {
+
+
+            FileWriter fw = new FileWriter(file, true);
+            bw = new BufferedWriter(fw);
+
+            if (file.exists())            {
+                bw.write("\n");
+            }
+
+            bw.write("{\n\"status\":" + response.statusCode() + ",\n\"body\":" +  response.body() + "\n}");
+        } catch (IOException e) {
+            e.printStackTrace();
+        } finally {
+            try {
+                if (bw != null) bw.close();
+            } catch (IOException ex) {
+                ex.printStackTrace();
+            }
+        }
     }
 
     private void updateUrl(){
@@ -119,10 +158,10 @@ public class Worker {
         if(!queryMap.isEmpty()){
             stringBuilder.append("?");
             queryMap.forEach((key, value) -> {
-                stringBuilder.append(key).append("=").append(value);
+                stringBuilder.append(key).append("=").append(value).append("&");
             });
         }
-        setUrl(stringBuilder.toString());
+        setUrl(stringBuilder.toString().replaceFirst("&$", ""));
     }
 
     public void readRequestBody(String filename){

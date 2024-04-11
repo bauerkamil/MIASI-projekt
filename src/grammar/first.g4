@@ -29,7 +29,8 @@ expr:
     ;
 
 value:
-        '{' name=ID ('|' index=value)? '}' #getVar
+        left=value CONCAT right=value #concat
+    |   '{' name=ID ('|' index=value)? '}' #getVar
     |   val=INT #stringTok
     |   val=ID #stringTok
     |   val=STRING #stringTok
@@ -63,6 +64,8 @@ OUT:    'out';
 CONSOLE: 'console';
 
 CALL:   'call';
+
+CONCAT: '++';
 
 
 //NEWLINE : [\r\n]+ -> skip;

@@ -43,7 +43,7 @@ public class CalculateVisitor extends firstBaseVisitor<String> {
     @Override
     public String visitForExpr(firstParser.ForExprContext ctx) {
         int fromValue = Integer.parseInt(ctx.from.getText());
-        int toValue = Integer.parseInt(ctx.from.getText());
+        int toValue = Integer.parseInt(ctx.to.getText());
         String indexName = null;
         if (ctx.index_name != null){
             indexName = ctx.index_name.getText();
@@ -102,7 +102,7 @@ public class CalculateVisitor extends firstBaseVisitor<String> {
     public String visitPrint(firstParser.PrintContext ctx) {
         var st = ctx.value();
         var result = visit(st);
-        System.out.printf("|%s|\n", result);
+        System.out.printf("> %s\n", result);
         return result;
     }
 
@@ -209,7 +209,12 @@ public class CalculateVisitor extends firstBaseVisitor<String> {
 
     @Override
     public String visitStringTok(firstParser.StringTokContext ctx) {
-        return ctx.val.getText();
+        return ctx.val.getText().replace("__", " ");
+    }
+
+    @Override
+    public String visitConcat(firstParser.ConcatContext ctx) {
+        return visit(ctx.left) + visit(ctx.right);
     }
 
     @Override

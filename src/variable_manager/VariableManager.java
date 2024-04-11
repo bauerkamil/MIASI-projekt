@@ -8,7 +8,7 @@ public class VariableManager {
 
     private final Map<String, String> localVars = new HashMap<>();
     private final Map<String, List<String>> localArrays = new HashMap<>();
-    private final Map<String, String>globalVars = new HashMap<>();
+    private final Map<String, String> globalVars = new HashMap<>();
     private final Map<String, List<String>> globalArrays = new HashMap<>();
 
     public String getVar(String name) {
@@ -45,21 +45,10 @@ public class VariableManager {
 
     public void putVar(String name, String value, boolean global) {
         if(global) {
-            if (!localVars.containsKey(name)
-                    && !localArrays.containsKey(name)
-                    && !globalArrays.containsKey(name)) {
-
                 this.globalVars.put(name, value);
-            }
             return;
         }
-
-        if (!globalVars.containsKey(name)
-                && !localArrays.containsKey(name)
-                && !globalArrays.containsKey(name)) {
-
             this.localVars.put(name, value);
-        }
     }
 
 
