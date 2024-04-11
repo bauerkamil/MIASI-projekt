@@ -43,16 +43,65 @@ public class CalculateVisitor extends firstBaseVisitor<String> {
         return input.getText(new Interval(a,b));
     }
 
+    //TODO: save return from call to variable??
     @Override
     public String visitForExpr(firstParser.ForExprContext ctx) {
-        //TODO
-        return super.visitForExpr(ctx);
+        int fromValue = Integer.parseInt(ctx.from.getText());
+        int toValue = Integer.parseInt(ctx.from.getText());
+        String indexName = null;
+        if (ctx.index_name != null){
+            indexName = ctx.index_name.getText();
+        }
+
+        for (int i = fromValue; i < toValue; i++) {
+            if (indexName != null) {
+                this.localVars.put(indexName, String.valueOf(i));
+            }
+
+            for (firstParser.Expr_fullContext itemCtx: ctx.body) {
+                visit(itemCtx);
+            }
+        }
+
+        if (indexName != null) {
+            this.localVars.remove(indexName);
+        }
+
+        return "";
     }
 
     @Override
     public String visitForeachExpr(firstParser.ForeachExprContext ctx) {
-        //TODO
-        return super.visitForeachExpr(ctx);
+        String arrName = ctx.array_name.getText();
+        String itemName = ctx.item_name.getText();
+        String indexName = null;
+        if (ctx.index_name != null){
+            indexName = ctx.index_name.getText();
+        }
+
+        List<String> array = this.globalArrays.get(arrName);
+        if (array == null) {
+            array = this.localArrays.get(arrName);
+        }
+
+        for (int i = 0; i < array.size(); i++) {
+            this.localVars.put(itemName, array.get(i));
+            if (indexName != null) {
+                this.localVars.put(indexName, String.valueOf(i));
+            }
+
+            for (firstParser.Expr_fullContext itemCtx: ctx.body) {
+                visit(itemCtx);
+            }
+
+        }
+
+        this.localVars.remove(itemName);
+        if (indexName != null) {
+            this.localVars.remove(indexName);
+        }
+
+        return "";
     }
 
     @Override
@@ -89,7 +138,7 @@ public class CalculateVisitor extends firstBaseVisitor<String> {
 
     @Override
     public String visitSetUrl(firstParser.SetUrlContext ctx) {
-        this.worker.setUrl(visit(ctx.expr()));
+        this.worker.setUrl(visit(ctx.value()));
         return "";
     }
 
@@ -107,8 +156,8 @@ public class CalculateVisitor extends firstBaseVisitor<String> {
 
     @Override
     public String visitSetBody(firstParser.SetBodyContext ctx) {
-        //TODO
-        return super.visitSetBody(ctx);
+        this.worker.updateRequestBody(visit(ctx.key), visit(ctx.val));
+        return "";
     }
 
     @Override
@@ -126,7 +175,7 @@ public class CalculateVisitor extends firstBaseVisitor<String> {
                 && !localArrays.containsKey(name)
                 && !globalArrays.containsKey(name)) {
 
-                this.globalVars.put(name, visit(ctx.expr()));
+                this.globalVars.put(name, visit(ctx.value()));
             }
             return "";
         }
@@ -135,7 +184,7 @@ public class CalculateVisitor extends firstBaseVisitor<String> {
                 && !localArrays.containsKey(name)
                 && !globalArrays.containsKey(name)) {
 
-            this.localVars.put(name, visit(ctx.expr()));
+            this.localVars.put(name, visit(ctx.value()));
         }
         return "";
     }
@@ -145,7 +194,7 @@ public class CalculateVisitor extends firstBaseVisitor<String> {
         String name = ctx.ID().getText();
 
         List<String> items = new ArrayList<>();
-        for (firstParser.ExprContext itemCtx: ctx.items) {
+        for (firstParser.ValueContext itemCtx: ctx.items) {
             items.add(visit(itemCtx));
         }
 
