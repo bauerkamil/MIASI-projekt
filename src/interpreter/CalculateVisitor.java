@@ -5,22 +5,18 @@ import org.antlr.v4.runtime.CharStream;
 import org.antlr.v4.runtime.ParserRuleContext;
 import org.antlr.v4.runtime.TokenStream;
 import org.antlr.v4.runtime.misc.Interval;
+import variable_manager.VariableManager;
 import worker.Worker;
 
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 
 public class CalculateVisitor extends firstBaseVisitor<String> {
     private TokenStream tokStream = null;
     private CharStream input=null;
 
-    private Worker worker = new Worker();
-    private final Map<String, String> localVars = new HashMap<>();
-    private final Map<String, List<String>> localArrays = new HashMap<>();
-    private final Map<String, String>globalVars = new HashMap<>();
-    private final Map<String, List<String>> globalArrays = new HashMap<>();
+    private final VariableManager variableManager = new VariableManager();
+    private Worker worker = new Worker(variableManager);
 
     public CalculateVisitor(CharStream inp) {
         super();
@@ -55,17 +51,17 @@ public class CalculateVisitor extends firstBaseVisitor<String> {
 
         for (int i = fromValue; i < toValue; i++) {
             if (indexName != null) {
-                this.localVars.put(indexName, String.valueOf(i));
+                this.variableManager.putVar(indexName, String.valueOf(i), false);
             }
 
             for (firstParser.Expr_fullContext itemCtx: ctx.body) {
                 visit(itemCtx);
             }
         }
-
-        if (indexName != null) {
-            this.localVars.remove(indexName);
-        }
+//
+//        if (indexName != null) {
+//            this.localVars.remove(indexName);
+//        }
 
         return "";
     }
@@ -79,15 +75,13 @@ public class CalculateVisitor extends firstBaseVisitor<String> {
             indexName = ctx.index_name.getText();
         }
 
-        List<String> array = this.globalArrays.get(arrName);
-        if (array == null) {
-            array = this.localArrays.get(arrName);
-        }
+        List<String> array = this.variableManager.getArray(arrName);
 
         for (int i = 0; i < array.size(); i++) {
-            this.localVars.put(itemName, array.get(i));
+            this.variableManager.putVar(itemName, array.get(i), false);
+
             if (indexName != null) {
-                this.localVars.put(indexName, String.valueOf(i));
+                this.variableManager.putVar(indexName, String.valueOf(i), false);
             }
 
             for (firstParser.Expr_fullContext itemCtx: ctx.body) {
@@ -95,13 +89,21 @@ public class CalculateVisitor extends firstBaseVisitor<String> {
             }
 
         }
-
-        this.localVars.remove(itemName);
-        if (indexName != null) {
-            this.localVars.remove(indexName);
-        }
+//
+//        this.localVars.remove(itemName);
+//        if (indexName != null) {
+//            this.localVars.remove(indexName);
+//        }
 
         return "";
+    }
+
+    @Override
+    public String visitPrint(firstParser.PrintContext ctx) {
+        var st = ctx.value();
+        var result = visit(st);
+        System.out.printf("|%s|\n", result);
+        return result;
     }
 
     @Override
@@ -119,15 +121,14 @@ public class CalculateVisitor extends firstBaseVisitor<String> {
 
     @Override
     public String visitPrintConsole(firstParser.PrintConsoleContext ctx) {
-        //TODO: val to print
         this.worker.setConsoleEnabled(true);
         return "";
     }
 
     @Override
     public String visitPrintFile(firstParser.PrintFileContext ctx) {
-        //TODO
-        return super.visitPrintFile(ctx);
+        this.worker.setOutputFile(visit(ctx.path));
+        return "";
     }
 
     @Override
@@ -167,25 +168,18 @@ public class CalculateVisitor extends firstBaseVisitor<String> {
     }
 
     @Override
+    public String visitSetResponseVar(firstParser.SetResponseVarContext ctx) {
+        this.worker.updateResponseVariables(visit(ctx.response_key), ctx.var_name.getText());
+        return "";
+    }
+
+    @Override
     public String visitSetVar(firstParser.SetVarContext ctx) {
         String name = ctx.ID().getText();
+        String value = visit(ctx.value());
 
-        if(ctx.global != null) {
-            if (!localVars.containsKey(name)
-                && !localArrays.containsKey(name)
-                && !globalArrays.containsKey(name)) {
+        this.variableManager.putVar(name, value, ctx.global != null);
 
-                this.globalVars.put(name, visit(ctx.value()));
-            }
-            return "";
-        }
-
-        if (!globalVars.containsKey(name)
-                && !localArrays.containsKey(name)
-                && !globalArrays.containsKey(name)) {
-
-            this.localVars.put(name, visit(ctx.value()));
-        }
         return "";
     }
 
@@ -198,22 +192,8 @@ public class CalculateVisitor extends firstBaseVisitor<String> {
             items.add(visit(itemCtx));
         }
 
-        if(ctx.global != null) {
-            if (!localVars.containsKey(name)
-                    && !globalVars.containsKey(name)
-                    && !localArrays.containsKey(name)) {
+        this.variableManager.putArray(name, items, ctx.global != null);
 
-                this.globalArrays.put(name, items);
-            }
-            return "";
-        }
-
-        if (!localVars.containsKey(name)
-                && !globalVars.containsKey(name)
-                && !globalArrays.containsKey(name)) {
-
-            this.localArrays.put(name, items);
-        }
         return "";
     }
 
@@ -224,23 +204,7 @@ public class CalculateVisitor extends firstBaseVisitor<String> {
         if (ctx.index != null)
             number = Integer.parseInt(visit(ctx.index));
 
-        if (number == null && this.localVars.containsKey(name)) {
-            return this.localVars.get(name);
-        }
-
-        if (number == null && this.globalVars.containsKey(name)) {
-            return this.globalVars.get(name);
-        }
-
-        if (number != null && this.localArrays.containsKey(name)) {
-            return this.localArrays.get(name).get(number);
-        }
-
-        if (number != null && this.globalArrays.containsKey(name)) {
-            return this.globalArrays.get(name).get(number);
-        }
-
-        throw new RuntimeException("Variable " + name + " does not exist or is nor defined correctly");
+        return this.variableManager.getVar(name, number);
     }
 
     @Override
@@ -249,12 +213,9 @@ public class CalculateVisitor extends firstBaseVisitor<String> {
     }
 
     @Override
-    public String visitBlockTok(firstParser.BlockTokContext ctx) {
-        //TODO: check
-        super.visitBlockTok(ctx);
-        this.worker = new Worker();
-        this.localVars.clear();
-        this.localArrays.clear();
+    public String visitClearBlock(firstParser.ClearBlockContext ctx) {
+        this.worker = new Worker(this.variableManager);
+        this.variableManager.clearLocalVars();
 
         return "";
     }

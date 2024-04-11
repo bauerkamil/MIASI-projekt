@@ -2,11 +2,8 @@ grammar first;
 
 prog:	stat* EOF ;
 
-stat: expr_full #expr_stat
-    | block #block_stat
-    ;
-
-block : expr_full* '>>' #blockTok
+stat: expr_full #exprStat
+    | '>>' #clearBlock
     ;
 
 //get_file: FILE '|' path=expr #getFile;
@@ -16,6 +13,7 @@ expr_full: expr ';';
 expr:
         FOR_ '|' from=INT '|' to=INT '|' (index_name=ID '|')? body+=expr_full (body+=expr_full)* #forExpr
     |   FOREACH '|' array_name=ID '|' item_name=ID '|' (index_name=ID '|')? body+=expr_full (body+=expr_full)* #foreachExpr
+    |   PRINT '|' value #print
     |   CALL ('|' num=value)? #call
     |   OUT '|' CONSOLE ('|' val=value)? #printConsole
     |   OUT '|' FILE '|' path=value #printFile
@@ -25,6 +23,7 @@ expr:
     |   HEADER '|'  key=value '|' val=value #setHeader
     |   BODY '|' FILE '|' path=value #setBodyFile
     |   BODY '|' JSON '|'  key=value '|' val=value #setBody
+    |   RESPONSE '|' response_key=value '|' var_name=ID #setResponseVar
     |   VAR '|' (global=GLOBAL '|')? name=ID '|' value #setVar
     |   ARRAY '|' (global=GLOBAL '|')? name=ID '|' '[' items+= value ('|' items+= value)* ']' #setArr
     ;
@@ -46,16 +45,19 @@ DELETE: 'delete';
 VAR:    'var';
 GLOBAL: 'global';
 ARRAY:  'array';
-URL:    'url';
 
+URL:    'url';
 QUERY:  'query';
 HEADER: 'header';
 BODY:   'body';
 FILE:   'file';
 JSON:   'json';
+RESPONSE: 'response';
 
 FOR_:   'for';
 FOREACH: 'foreach';
+
+PRINT:  'print';
 
 OUT:    'out';
 CONSOLE: 'console';
